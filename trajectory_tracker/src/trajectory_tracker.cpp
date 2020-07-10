@@ -591,7 +591,7 @@ void TrackerNode::control()
   else
     path_step_done_ = std::max(path_step_done_, i_nearest - 1);
 }
-}  //namespace trajectory_tracker
+}  // namespace trajectory_tracker
 
 int main(int argc, char** argv)
 {
