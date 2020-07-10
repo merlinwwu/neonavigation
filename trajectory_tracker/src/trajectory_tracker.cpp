@@ -334,7 +334,6 @@ void TrackerNode::control()
   trajectory_tracker::Path2D lpath;
   double transform_delay = 0;
   float dt = 1.0 / hz_;
-  double vel = 0.0;
   double wvel = 0.0;
   try
   {
@@ -353,7 +352,6 @@ void TrackerNode::control()
 
       dt = (transform.stamp_ - prev_transform_.stamp_).toSec();
       const tf2::Transform local_move = prev_transform_.inverse() * transform;
-      vel = local_move.getOrigin().x() / dt;
       wvel = tf2::getYaw(local_move.getRotation()) / dt;
       prev_transform_ = transform;
     }
