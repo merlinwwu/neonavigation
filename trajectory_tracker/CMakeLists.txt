@@ -4,7 +4,6 @@ project(trajectory_tracker)
 set(CATKIN_DEPENDS
   roscpp
 
-  control_toolbox
   dynamic_reconfigure
   geometry_msgs
   interactive_markers

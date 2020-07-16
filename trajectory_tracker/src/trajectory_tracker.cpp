@@ -51,8 +51,6 @@
 
 #include <ros/ros.h>
 
-#include <control_toolbox/ParametersConfig.h>
-#include <control_toolbox/pid.h>
 #include <dynamic_reconfigure/server.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
@@ -114,8 +112,10 @@ private:
   bool limit_vel_by_avel_;
   bool check_old_path_;
   double epsilon_;
-  bool use_rotation_pid_;
   double time_optimal_control_future_gain_;
+  bool use_rotation_pd_control_;
+  double rotation_p_;
+  double rotation_d_;
 
   ros::Subscriber sub_path_;
   ros::Subscriber sub_path_velocity_;
@@ -125,7 +125,6 @@ private:
   ros::Publisher pub_tracking_;
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
-  ros::NodeHandle pnh_rotation_pid_;
   tf2_ros::Buffer tfbuf_;
   tf2_ros::TransformListener tfl_;
   trajectory_tracker::Path2D path_;
@@ -134,7 +133,6 @@ private:
 
   mutable boost::recursive_mutex parameter_server_mutex_;
   dynamic_reconfigure::Server<TrajectoryTrackerConfig> parameter_server_;
-  std::unique_ptr<control_toolbox::Pid> pid_;
 
   template <typename MSG_TYPE>
   void cbPath(const typename MSG_TYPE::ConstPtr&);
@@ -147,7 +145,6 @@ private:
 TrackerNode::TrackerNode()
   : nh_()
   , pnh_("~")
-  , pnh_rotation_pid_(pnh_, "rotation_pid")
   , tfl_(tfbuf_)
 {
   neonavigation_common::compat::checkCompatMode();
@@ -176,8 +173,6 @@ TrackerNode::TrackerNode()
 
   boost::recursive_mutex::scoped_lock lock(parameter_server_mutex_);
   parameter_server_.setCallback(boost::bind(&TrackerNode::cbParameter, this, _1, _2));
-  pid_.reset(new control_toolbox::Pid());
-  pid_->init(pnh_rotation_pid_);
 }
 
 void TrackerNode::cbParameter(const TrajectoryTrackerConfig& config, const uint32_t /* level */)
@@ -209,8 +204,10 @@ void TrackerNode::cbParameter(const TrajectoryTrackerConfig& config, const uint3
   limit_vel_by_avel_ = config.limit_vel_by_avel;
   check_old_path_ = config.check_old_path;
   epsilon_ = config.epsilon;
-  use_rotation_pid_ = config.use_rotation_pid;
   time_optimal_control_future_gain_ = config.time_optimal_control_future_gain;
+  use_rotation_pd_control_ = config.use_rotation_pd_control;
+  rotation_p_ = config.rotation_p;
+  rotation_d_ = config.rotation_d;
 }
 
 TrackerNode::~TrackerNode()
@@ -490,9 +487,9 @@ void TrackerNode::control()
         0.0,
         linear_vel, acc_[0], dt);
 
-    if (use_rotation_pid_)
+    if (use_rotation_pd_control_)
     {
-      const double target_wvel = pid_->computeCommand(-angle, wvel, ros::Duration(dt));
+      const double target_wvel = -angle * rotation_p_ + wvel * rotation_d_;
       w_lim_.set(target_wvel, vel_[1], acc_[1], dt);
     }
     else
